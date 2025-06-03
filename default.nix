@@ -6,7 +6,7 @@ let
   storeDir = normalize builtins.storeDir;
   rstoreDir = concatStrings (reverseList (stringToCharacters storeDir));
   storePaths = "${closureInfo { rootPaths = drv; }}/store-paths";
-  rootPath = normalize "${rstoreDir}${baseNameOf drv}";
+  rootPath = "${builtins.toPath "${rstoreDir}${baseNameOf drv}"}";
   computeMaxPathLength =
     writers.writePython3 "compute" { flakeIgnore = [ "E501" ]; }
     (builtins.readFile ./max-path-len.py);
