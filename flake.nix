@@ -9,7 +9,8 @@
       let pkgs = nixpkgs.legacyPackages.${system};
       in {
         bundlers = rec {
-          toRelocatable = (pkgs.callPackage ./default.nix { });
+          toRelocatable = pkgs.callPackage ./default.nix { };
+          fixedLocationTarGz = pkgs.callPackage ./fixed-location-tar-gz.nix {};
           default = toRelocatable;
         };
       });
