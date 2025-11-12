@@ -7,6 +7,8 @@
   # The path to the folder that will contain the relocated nix store
   # _including trailing slash_
   path ? "/tmp/${drv.name}/",
+  # The compressed file will have name "${tarName}.tar.gz"
+  tarName ? drv.name,
   # Whether to create a wrapper that adds all the content in the
   # relocated nix store to environment variables
   doWrap ? true,
@@ -100,5 +102,5 @@ runCommand "${drv.name}.tar.gz" {} ''
 
   ${maybeCodesign}
 
-  tar c ${builtins.baseNameOf path} | gzip > $out/${drv.name}.tar.gz
+  tar c ${builtins.baseNameOf path} | gzip > $out/${tarName}.tar.gz
 ''
