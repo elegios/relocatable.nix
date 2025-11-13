@@ -82,9 +82,14 @@ let
       -exec ${darwin.sigtool}/bin/sigtool --file "{}" check-requires-signature \; \
       -exec ${darwin.sigtool}/bin/codesign -s - -f "{}" \;
   '';
+
+  passthru = {
+    path = path;
+    tarName = "${tarName}.tar.gz";
+  };
 in
 
-runCommand "${drv.name}.tar.gz" {} ''
+runCommand "${drv.name}.tar.gz" {inherit passthru;} ''
   mkdir -p $out
   tar c \
     --owner=0 \
