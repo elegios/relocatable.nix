@@ -1,5 +1,5 @@
 { writeShellApplication, lib, closureInfo, runCommand,
-  stdenv, darwin,
+  stdenv, darwin, jq, stdenvNoCC, coreutils,
 }:
 {
   # The derivation to extract to a self-contained, relocated nix store
@@ -13,31 +13,48 @@
   # relocated nix store to environment variables
   doWrap ? true,
   # Extra setup to do in the wrapper script, for variables other than
-  # PATH and LIBRARY_PATH
-  extraSetup ? storePath: "",
+  # PATH and LIBRARY_PATH. Requires doWrap. Run once per (transitive)
+  # dependency, in topological order, i.e., dependencies are processed
+  # before their dependants.
+  extraSetup ? depPath: "",
   # Extra inputs that are required at runtime, but not explicitly
-  # referenced in the original derivation
+  # referenced in the original derivation. Requires doWrap.
   runtimeInputs ? [],
 }:
 
 let
+  tsortedPaths = stdenvNoCC.mkDerivation {
+    name = "toposorted-paths";
+    __structuredAttrs = true;
+    exportReferencesGraph.closure = [drv] ++ runtimeInputs;
+    preferLocalBuild = true;
+    nativeBuildInputs = [coreutils jq];
+    buildCommand = ''
+      out=''${outputs[out]}
+
+      jq -r '.closure[] | .references[] + " " + .path' < "$NIX_ATTRS_JSON_FILE" | tsort > $out
+    '';
+  };
   pkg =
     if doWrap then
       writeShellApplication {
         name = builtins.baseNameOf (lib.getExe drv);
-        inherit runtimeInputs;
         text = ''
-          for bin in ${drv}/../*/bin; do
-            PATH="$bin"''${PATH:+:''${PATH}}
-          done
-          export PATH
+          shopt -s nullglob
 
-          for lib in ${drv}/../*/lib; do
-            LIBRARY_PATH="$lib"''${LIBRARY_PATH:+:''${LIBRARY_PATH}}
-          done
-          export LIBRARY_PATH
+          while IFS= read -r dep; do
+            if test -d "$dep"/bin; then
+              PATH="$dep/bin"''${PATH:+:''${PATH}}
+              export PATH
+            fi
 
-          ${extraSetup "${drv}/../"}
+            if test -d "$dep"/lib; then
+              LIBRARY_PATH="$dep/lib"''${LIBRARY_PATH:+:''${LIBRARY_PATH}}
+              export LIBRARY_PATH
+            fi
+
+            ${extraSetup "\"$dep\""}
+          done < ${tsortedPaths}
 
           exec -a "$0" "${lib.getExe drv}" "$@"
         '';
